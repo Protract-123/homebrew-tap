@@ -1,0 +1,68 @@
+name: Update Alacritty Cask
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new release
+        id: check
+        run: |
+          CURRENT=$(sed -n 's/.*version "\([^"]*\)".*/\1/p' Casks/alacritty.rb)
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          LATEST=$(curl -sf https://api.github.com/repos/alacritty/alacritty/releases/latest \
+            | jq -r '.tag_name' | sed 's/^v//')
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT" = "$LATEST" ]; then
+            echo "No update needed ($CURRENT is latest)"
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Update available: $CURRENT -> $LATEST"
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download DMG and compute SHA256
+        if: steps.check.outputs.needs_update == 'true'
+        id: sha
+        env:
+          VERSION: ${{ steps.check.outputs.latest }}
+        run: |
+          URL="https://github.com/alacritty/alacritty/releases/download/v${VERSION}/Alacritty-v${VERSION}.dmg"
+          echo "Downloading $URL"
+          curl -sfL -o alacritty.dmg "$URL"
+          SHA256=$(sha256sum alacritty.dmg | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "SHA256: $SHA256"
+
+      - name: Update cask file
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          NEW_VERSION: ${{ steps.check.outputs.latest }}
+          NEW_SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          sed -i "s/version \".*\"/version \"${NEW_VERSION}\"/" Casks/alacritty.rb
+          sed -i "s/sha256 \".*\"/sha256 \"${NEW_SHA256}\"/" Casks/alacritty.rb
+          echo "Updated cask:"
+          cat Casks/alacritty.rb
+
+      - name: Commit and push
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          CURRENT: ${{ steps.check.outputs.current }}
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/alacritty.rb
+          git commit -m "alacritty: update ${CURRENT} -> ${LATEST}"
+          git push
