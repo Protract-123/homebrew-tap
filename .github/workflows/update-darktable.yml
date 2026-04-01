@@ -1,0 +1,77 @@
+name: Update darktable Cask
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for new release
+        id: check
+        run: |
+          CURRENT=$(sed -n 's/.*version "\([^"]*\)".*/\1/p' Casks/darktable.rb)
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          LATEST=$(curl -sf https://api.github.com/repos/darktable-org/darktable/releases/latest \
+            | jq -r '.tag_name' | sed 's/^release-//')
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT" = "$LATEST" ]; then
+            echo "No update needed ($CURRENT is latest)"
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Update available: $CURRENT -> $LATEST"
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download DMGs and compute SHA256
+        if: steps.check.outputs.needs_update == 'true'
+        id: sha
+        env:
+          VERSION: ${{ steps.check.outputs.latest }}
+        run: |
+          ARM_URL="https://github.com/darktable-org/darktable/releases/download/release-${VERSION}/darktable-${VERSION}-arm64.dmg"
+          echo "Downloading $ARM_URL"
+          curl -sfL -o darktable-arm64.dmg "$ARM_URL"
+          ARM_SHA256=$(sha256sum darktable-arm64.dmg | awk '{print $1}')
+          echo "sha256_arm=$ARM_SHA256" >> "$GITHUB_OUTPUT"
+          echo "ARM64 SHA256: $ARM_SHA256"
+
+          INTEL_URL="https://github.com/darktable-org/darktable/releases/download/release-${VERSION}/darktable-${VERSION}-x86_64.dmg"
+          echo "Downloading $INTEL_URL"
+          curl -sfL -o darktable-x86_64.dmg "$INTEL_URL"
+          INTEL_SHA256=$(sha256sum darktable-x86_64.dmg | awk '{print $1}')
+          echo "sha256_intel=$INTEL_SHA256" >> "$GITHUB_OUTPUT"
+          echo "x86_64 SHA256: $INTEL_SHA256"
+
+      - name: Update cask file
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          NEW_VERSION: ${{ steps.check.outputs.latest }}
+          NEW_SHA256_ARM: ${{ steps.sha.outputs.sha256_arm }}
+          NEW_SHA256_INTEL: ${{ steps.sha.outputs.sha256_intel }}
+        run: |
+          sed -i "s/version \".*\"/version \"${NEW_VERSION}\"/" Casks/darktable.rb
+          sed -i "s/sha256 arm:   \".*\"/sha256 arm:   \"${NEW_SHA256_ARM}\"/" Casks/darktable.rb
+          sed -i "s/^         intel: \".*\"/         intel: \"${NEW_SHA256_INTEL}\"/" Casks/darktable.rb
+          echo "Updated cask:"
+          cat Casks/darktable.rb
+
+      - name: Commit and push
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          CURRENT: ${{ steps.check.outputs.current }}
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/darktable.rb
+          git commit -m "darktable: update ${CURRENT} -> ${LATEST}"
+          git push
