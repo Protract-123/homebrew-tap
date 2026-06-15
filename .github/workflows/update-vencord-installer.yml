@@ -1,0 +1,18 @@
+name: Update vencord-installer Cask
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    uses: ./.github/workflows/update-cask.yml
+    with:
+      cask_name: vencord-installer
+      github_repo: Vencord/Installer
+      tag_prefix: v
+      asset_url_template: https://github.com/Vencord/Installer/releases/download/v{VERSION}/VencordInstaller.MacOS.zip
