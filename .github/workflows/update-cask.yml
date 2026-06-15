@@ -1,0 +1,144 @@
+name: Update Cask
+
+on:
+  workflow_call:
+    inputs:
+      cask_name:
+        required: true
+        type: string
+      github_repo:
+        required: true
+        type: string
+      tag_prefix:
+        required: false
+        type: string
+        default: ""
+        description: "Prefix to strip from the release tag (e.g. 'v', 'release-')"
+      asset_url_template:
+        required: false
+        type: string
+        default: ""
+        description: "Single-binary download URL with {VERSION} as placeholder"
+      asset_url_template_arm:
+        required: false
+        type: string
+        default: ""
+        description: "ARM64 download URL with {VERSION} as placeholder (dual-arch casks)"
+      asset_url_template_intel:
+        required: false
+        type: string
+        default: ""
+        description: "x86_64 download URL with {VERSION} as placeholder (dual-arch casks)"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for new release
+        id: check
+        env:
+          CASK_NAME: ${{ inputs.cask_name }}
+          GITHUB_REPO: ${{ inputs.github_repo }}
+          TAG_PREFIX: ${{ inputs.tag_prefix }}
+        run: |
+          CURRENT=$(sed -n 's/.*version "\([^"]*\)".*/\1/p' "Casks/${CASK_NAME}.rb")
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          LATEST=$(curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
+            | jq -r '.tag_name' | sed "s/^${TAG_PREFIX}//")
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT" = "$LATEST" ]; then
+            echo "No update needed ($CURRENT is latest)"
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Update available: $CURRENT -> $LATEST"
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Single-binary path (alacritty, oculante) ---
+
+      - name: Download asset and compute SHA256
+        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm == ''
+        id: sha_single
+        env:
+          VERSION: ${{ steps.check.outputs.latest }}
+          ASSET_URL_TEMPLATE: ${{ inputs.asset_url_template }}
+        run: |
+          URL=$(echo "$ASSET_URL_TEMPLATE" | sed "s/{VERSION}/${VERSION}/g")
+          echo "Downloading $URL"
+          curl -sfL -o asset "$URL"
+          SHA256=$(sha256sum asset | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "SHA256: $SHA256"
+
+      - name: Update cask file
+        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm == ''
+        env:
+          CASK_NAME: ${{ inputs.cask_name }}
+          NEW_VERSION: ${{ steps.check.outputs.latest }}
+          NEW_SHA256: ${{ steps.sha_single.outputs.sha256 }}
+        run: |
+          CASK_FILE="Casks/${CASK_NAME}.rb"
+          sed -i "s/version \".*\"/version \"${NEW_VERSION}\"/" "$CASK_FILE"
+          sed -i "s/sha256 \".*\"/sha256 \"${NEW_SHA256}\"/" "$CASK_FILE"
+          echo "Updated cask:"
+          cat "$CASK_FILE"
+
+      # --- Dual-arch path (darktable) ---
+
+      - name: Download arch-specific assets and compute SHA256
+        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm != ''
+        id: sha_dual
+        env:
+          VERSION: ${{ steps.check.outputs.latest }}
+          ARM_URL_TEMPLATE: ${{ inputs.asset_url_template_arm }}
+          INTEL_URL_TEMPLATE: ${{ inputs.asset_url_template_intel }}
+        run: |
+          ARM_URL=$(echo "$ARM_URL_TEMPLATE" | sed "s/{VERSION}/${VERSION}/g")
+          echo "Downloading $ARM_URL"
+          curl -sfL -o asset-arm "$ARM_URL"
+          SHA256_ARM=$(sha256sum asset-arm | awk '{print $1}')
+          echo "sha256_arm=$SHA256_ARM" >> "$GITHUB_OUTPUT"
+          echo "ARM64 SHA256: $SHA256_ARM"
+
+          INTEL_URL=$(echo "$INTEL_URL_TEMPLATE" | sed "s/{VERSION}/${VERSION}/g")
+          echo "Downloading $INTEL_URL"
+          curl -sfL -o asset-intel "$INTEL_URL"
+          SHA256_INTEL=$(sha256sum asset-intel | awk '{print $1}')
+          echo "sha256_intel=$SHA256_INTEL" >> "$GITHUB_OUTPUT"
+          echo "x86_64 SHA256: $SHA256_INTEL"
+
+      - name: Update cask file (dual-arch)
+        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm != ''
+        env:
+          CASK_NAME: ${{ inputs.cask_name }}
+          NEW_VERSION: ${{ steps.check.outputs.latest }}
+          NEW_SHA256_ARM: ${{ steps.sha_dual.outputs.sha256_arm }}
+          NEW_SHA256_INTEL: ${{ steps.sha_dual.outputs.sha256_intel }}
+        run: |
+          CASK_FILE="Casks/${CASK_NAME}.rb"
+          sed -i "s/version \".*\"/version \"${NEW_VERSION}\"/" "$CASK_FILE"
+          sed -i "s/sha256 arm:   \".*\"/sha256 arm:   \"${NEW_SHA256_ARM}\"/" "$CASK_FILE"
+          sed -i "/intel:/s/\"[^\"]*\"/\"${NEW_SHA256_INTEL}\"/" "$CASK_FILE"
+          echo "Updated cask:"
+          cat "$CASK_FILE"
+
+      # --- Unified commit ---
+
+      - name: Commit and push
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          CASK_NAME: ${{ inputs.cask_name }}
+          CURRENT: ${{ steps.check.outputs.current }}
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "Casks/${CASK_NAME}.rb"
+          git commit -m "${CASK_NAME} - update ${CURRENT} -> ${LATEST}"
+          git push
