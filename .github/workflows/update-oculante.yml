@@ -1,0 +1,17 @@
+name: Update oculante Cask
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    uses: ./.github/workflows/update-cask.yml
+    with:
+      cask_name: oculante
+      github_repo: woelper/oculante
+      asset_url_template: https://github.com/woelper/oculante/releases/download/{VERSION}/oculante_mac_universal.zip

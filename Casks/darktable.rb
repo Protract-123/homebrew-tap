@@ -12,16 +12,16 @@ cask "darktable" do
   homepage "https://www.darktable.org/"
 
   livecheck do
-    url "https://github.com/darktable-org/darktable/releases/latest"
-    strategy :header_match
-    regex(/release[._-]v?(\d+(?:\.\d+)+)/i)
+    url "https://github.com/darktable-org/darktable"
+    strategy :github_latest
+    regex(/release[._-](\d+(?:\.\d+)+)/i)
   end
 
   on_arm do
-    depends_on macos: ">= :sonoma"
+    depends_on macos: ":sonoma"
   end
   on_intel do
-    depends_on macos: ">= :sequoia"
+    depends_on macos: ":sequoia"
   end
 
   app "darktable.app"
