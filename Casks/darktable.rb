@@ -17,12 +17,7 @@ cask "darktable" do
     regex(/release[._-](\d+(?:\.\d+)+)/i)
   end
 
-  on_arm do
-    depends_on macos: ":sonoma"
-  end
-  on_intel do
-    depends_on macos: ":sequoia"
-  end
+  depends_on :macos
 
   app "darktable.app"
 
