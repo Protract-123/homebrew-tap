@@ -1,5 +1,7 @@
 # Protract-123 Tap
 
+A collection of homebrew casks which aren't in the official homebrew repos, or are to be removed from the official repos.
+
 ## How do I install these formulae?
 
 `brew install protract-123/tap/<formula>`
