@@ -1,4 +1,4 @@
-name: Update Alacritty Cask
+name: Update alacritty Cask
 
 on:
   schedule:
