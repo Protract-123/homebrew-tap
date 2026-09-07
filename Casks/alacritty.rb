@@ -28,9 +28,15 @@ cask "alacritty" do
   fish_completion "#{appdir}/Alacritty.app/Contents/Resources/completions/alacritty.fish"
   zsh_completion "#{appdir}/Alacritty.app/Contents/Resources/completions/_alacritty"
 
-  postflight do
-    system "/usr/bin/xattr", "-drs", "com.apple.quarantine", "#{appdir}/Alacritty.app"
-    system "/usr/bin/codesign", "--force", "--deep", "-s", "-", "#{appdir}/Alacritty.app"
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args:           ["-drs", "com.apple.quarantine", "{{appdir}}/Alacritty.app"],
+        writable_paths: "Alacritty.app",
+        writable_base:  :appdir
+    run "/usr/bin/codesign",
+        args:           ["--force", "--deep", "-s", "-", "{{appdir}}/Alacritty.app"],
+        writable_paths: "Alacritty.app",
+        writable_base:  :appdir
   end
 
   zap trash: [

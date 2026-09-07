@@ -69,7 +69,7 @@ jobs:
           VERSION: ${{ steps.check.outputs.latest }}
           ASSET_URL_TEMPLATE: ${{ inputs.asset_url_template }}
         run: |
-          URL=$(echo "$ASSET_URL_TEMPLATE" | sed "s/{VERSION}/${VERSION}/g")
+          URL="${ASSET_URL_TEMPLATE//\{VERSION\}/$VERSION}"
           echo "Downloading $URL"
           curl -sfL -o asset "$URL"
           SHA256=$(sha256sum asset | awk '{print $1}')
@@ -84,8 +84,16 @@ jobs:
           NEW_SHA256: ${{ steps.sha_single.outputs.sha256 }}
         run: |
           CASK_FILE="Casks/${CASK_NAME}.rb"
-          sed -i "s/version \".*\"/version \"${NEW_VERSION}\"/" "$CASK_FILE"
-          sed -i "s/sha256 \".*\"/sha256 \"${NEW_SHA256}\"/" "$CASK_FILE"
+          ARCH_BEFORE=$(grep -c '^[[:space:]]*arch ' "$CASK_FILE" || true)
+
+          sed -i "s/^\([[:space:]]*\)version \"[^\"]*\"/\1version \"${NEW_VERSION}\"/" "$CASK_FILE"
+          sed -i "s/^\([[:space:]]*\)sha256 \"[^\"]*\"/\1sha256 \"${NEW_SHA256}\"/" "$CASK_FILE"
+
+          grep -q "version \"${NEW_VERSION}\"" "$CASK_FILE" || { echo "::error::version was not updated"; exit 1; }
+          grep -q "sha256 \"${NEW_SHA256}\"" "$CASK_FILE" || { echo "::error::sha256 was not updated"; exit 1; }
+          ARCH_AFTER=$(grep -c '^[[:space:]]*arch ' "$CASK_FILE" || true)
+          [ "$ARCH_BEFORE" = "$ARCH_AFTER" ] || { echo "::error::arch stanza was modified"; exit 1; }
+
           echo "Updated cask:"
           cat "$CASK_FILE"
 
@@ -99,14 +107,14 @@ jobs:
           ARM_URL_TEMPLATE: ${{ inputs.asset_url_template_arm }}
           INTEL_URL_TEMPLATE: ${{ inputs.asset_url_template_intel }}
         run: |
-          ARM_URL=$(echo "$ARM_URL_TEMPLATE" | sed "s/{VERSION}/${VERSION}/g")
+          ARM_URL="${ARM_URL_TEMPLATE//\{VERSION\}/$VERSION}"
           echo "Downloading $ARM_URL"
           curl -sfL -o asset-arm "$ARM_URL"
           SHA256_ARM=$(sha256sum asset-arm | awk '{print $1}')
           echo "sha256_arm=$SHA256_ARM" >> "$GITHUB_OUTPUT"
           echo "ARM64 SHA256: $SHA256_ARM"
 
-          INTEL_URL=$(echo "$INTEL_URL_TEMPLATE" | sed "s/{VERSION}/${VERSION}/g")
+          INTEL_URL="${INTEL_URL_TEMPLATE//\{VERSION\}/$VERSION}"
           echo "Downloading $INTEL_URL"
           curl -sfL -o asset-intel "$INTEL_URL"
           SHA256_INTEL=$(sha256sum asset-intel | awk '{print $1}')
@@ -122,9 +130,24 @@ jobs:
           NEW_SHA256_INTEL: ${{ steps.sha_dual.outputs.sha256_intel }}
         run: |
           CASK_FILE="Casks/${CASK_NAME}.rb"
-          sed -i "s/version \".*\"/version \"${NEW_VERSION}\"/" "$CASK_FILE"
-          sed -i "s/sha256 arm:   \".*\"/sha256 arm:   \"${NEW_SHA256_ARM}\"/" "$CASK_FILE"
-          sed -i "/intel:/s/\"[^\"]*\"/\"${NEW_SHA256_INTEL}\"/" "$CASK_FILE"
+          ARCH_LINE_BEFORE=$(grep '^[[:space:]]*arch ' "$CASK_FILE" || true)
+
+          # Each substitution is anchored to the start of its own stanza line.
+          # `intel:` appears on both the `arch` line and the `sha256` continuation
+          # line, so an unanchored /intel:/ address rewrites the arch stanza too.
+          sed -i "s/^\([[:space:]]*\)version \"[^\"]*\"/\1version \"${NEW_VERSION}\"/" "$CASK_FILE"
+          sed -i "s/^\([[:space:]]*sha256 arm:[[:space:]]*\)\"[^\"]*\"/\1\"${NEW_SHA256_ARM}\"/" "$CASK_FILE"
+          sed -i "s/^\([[:space:]]*intel:[[:space:]]*\)\"[^\"]*\"/\1\"${NEW_SHA256_INTEL}\"/" "$CASK_FILE"
+
+          grep -q "version \"${NEW_VERSION}\"" "$CASK_FILE" || { echo "::error::version was not updated"; exit 1; }
+          grep -q "arm:   \"${NEW_SHA256_ARM}\"" "$CASK_FILE" || { echo "::error::arm sha256 was not updated"; exit 1; }
+          grep -q "intel: \"${NEW_SHA256_INTEL}\"" "$CASK_FILE" || { echo "::error::intel sha256 was not updated"; exit 1; }
+          ARCH_LINE_AFTER=$(grep '^[[:space:]]*arch ' "$CASK_FILE" || true)
+          [ "$ARCH_LINE_BEFORE" = "$ARCH_LINE_AFTER" ] || {
+            echo "::error::arch stanza was modified by the version bump"
+            exit 1
+          }
+
           echo "Updated cask:"
           cat "$CASK_FILE"
 

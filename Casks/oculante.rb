@@ -16,9 +16,15 @@ cask "oculante" do
 
   app "oculante.app"
 
-  postflight do
-    system "/usr/bin/xattr", "-drs", "com.apple.quarantine", "#{appdir}/oculante.app"
-    system "/usr/bin/codesign", "--force", "--deep", "-s", "-", "#{appdir}/oculante.app"
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args:           ["-drs", "com.apple.quarantine", "{{appdir}}/oculante.app"],
+        writable_paths: "oculante.app",
+        writable_base:  :appdir
+    run "/usr/bin/codesign",
+        args:           ["--force", "--deep", "-s", "-", "{{appdir}}/oculante.app"],
+        writable_paths: "oculante.app",
+        writable_base:  :appdir
   end
 
   zap trash: [

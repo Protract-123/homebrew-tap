@@ -1,12 +1,11 @@
 cask "darktable" do
-  arch arm: "ab09e11d548a7028f7bacc2bc4549a272c4e8d385be0e38ecc9e7943914abe61", intel: "x86_64"
+  arch arm: "arm64", intel: "x86_64"
 
   version "5.6.1"
   sha256 arm:   "155c25a48e06023eeeda3640f6f4fc7848bc1ad8e7384ba1d7b63098986fbeda",
          intel: "ab09e11d548a7028f7bacc2bc4549a272c4e8d385be0e38ecc9e7943914abe61"
 
-  url "https://github.com/darktable-org/darktable/releases/download/release-#{version}/darktable-#{version}-#{arch}.dmg",
-      verified: "github.com/darktable-org/darktable/"
+  url "https://github.com/darktable-org/darktable/releases/download/release-#{version}/darktable-#{version}-#{arch}.dmg"
   name "darktable"
   desc "Photography workflow application and raw developer"
   homepage "https://www.darktable.org/"
@@ -21,9 +20,15 @@ cask "darktable" do
 
   app "darktable.app"
 
-  postflight do
-    system "/usr/bin/xattr", "-drs", "com.apple.quarantine", "#{appdir}/darktable.app"
-    system "/usr/bin/codesign", "--force", "--deep", "-s", "-", "#{appdir}/darktable.app"
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args:           ["-drs", "com.apple.quarantine", "{{appdir}}/darktable.app"],
+        writable_paths: "darktable.app",
+        writable_base:  :appdir
+    run "/usr/bin/codesign",
+        args:           ["--force", "--deep", "-s", "-", "{{appdir}}/darktable.app"],
+        writable_paths: "darktable.app",
+        writable_base:  :appdir
   end
 
   zap trash: [

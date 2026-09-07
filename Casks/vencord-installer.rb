@@ -12,11 +12,19 @@ cask "vencord-installer" do
     strategy :github_latest
   end
 
+  depends_on :macos
+
   app "VencordInstaller.app"
 
-  postflight do
-    system "/usr/bin/xattr", "-drs", "com.apple.quarantine", "#{appdir}/VencordInstaller.app"
-    system "/usr/bin/codesign", "--force", "--deep", "-s", "-", "#{appdir}/VencordInstaller.app"
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args:           ["-drs", "com.apple.quarantine", "{{appdir}}/VencordInstaller.app"],
+        writable_paths: "VencordInstaller.app",
+        writable_base:  :appdir
+    run "/usr/bin/codesign",
+        args:           ["--force", "--deep", "-s", "-", "{{appdir}}/VencordInstaller.app"],
+        writable_paths: "VencordInstaller.app",
+        writable_base:  :appdir
   end
 
   zap trash: [
