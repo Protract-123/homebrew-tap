@@ -1,8 +1,8 @@
 cask "vencord-installer" do
-  version "1.4.0"
-  sha256 "b7b4d38643223df94f3af937ad05cd25c68d0b1aa5b6da52b71aee4593da8817"
+  version "1.4.2"
+  sha256 "2d127ef1f5cab27d31a71880b237db0356c34b33ffe977827d95b8c6e5cb80d1"
 
-  url "https://github.com/Vencord/Installer/releases/download/v#{version}/VencordInstaller.MacOS.zip"
+  url "https://github.com/Vencord/Installer/releases/download/v#{version}/VencordInstaller.dmg"
   name "VencordInstaller"
   desc "Installer for Vencord, a Discord client mod"
   homepage "https://github.com/Vencord/Installer"

@@ -15,5 +15,4 @@ jobs:
       cask_name: darktable
       github_repo: darktable-org/darktable
       tag_prefix: release-
-      asset_url_template_arm: https://github.com/darktable-org/darktable/releases/download/release-{VERSION}/darktable-{VERSION}-arm64.dmg
-      asset_url_template_intel: https://github.com/darktable-org/darktable/releases/download/release-{VERSION}/darktable-{VERSION}-x86_64.dmg
+      asset_url_template: https://github.com/darktable-org/darktable/releases/download/release-{VERSION}/darktable-{VERSION}-arm64.dmg

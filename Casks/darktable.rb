@@ -1,11 +1,8 @@
 cask "darktable" do
-  arch arm: "arm64", intel: "x86_64"
+  version "5.6.2"
+  sha256 "6ff88e58a2a59cb07b0a1502fea7205e68cd783380a33a3ce7bda68ec29def0c"
 
-  version "5.6.1"
-  sha256 arm:   "155c25a48e06023eeeda3640f6f4fc7848bc1ad8e7384ba1d7b63098986fbeda",
-         intel: "ab09e11d548a7028f7bacc2bc4549a272c4e8d385be0e38ecc9e7943914abe61"
-
-  url "https://github.com/darktable-org/darktable/releases/download/release-#{version}/darktable-#{version}-#{arch}.dmg"
+  url "https://github.com/darktable-org/darktable/releases/download/release-#{version}/darktable-#{version}-arm64.dmg"
   name "darktable"
   desc "Photography workflow application and raw developer"
   homepage "https://www.darktable.org/"
@@ -17,6 +14,7 @@ cask "darktable" do
   end
 
   depends_on :macos
+  depends_on arch: :arm64
 
   app "darktable.app"
 

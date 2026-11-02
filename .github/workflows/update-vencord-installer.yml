@@ -15,4 +15,4 @@ jobs:
       cask_name: vencord-installer
       github_repo: Vencord/Installer
       tag_prefix: v
-      asset_url_template: https://github.com/Vencord/Installer/releases/download/v{VERSION}/VencordInstaller.MacOS.zip
+      asset_url_template: https://github.com/Vencord/Installer/releases/download/v{VERSION}/VencordInstaller.dmg

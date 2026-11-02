@@ -15,20 +15,9 @@ on:
         default: ""
         description: "Prefix to strip from the release tag (e.g. 'v', 'release-')"
       asset_url_template:
-        required: false
+        required: true
         type: string
-        default: ""
-        description: "Single-binary download URL with {VERSION} as placeholder"
-      asset_url_template_arm:
-        required: false
-        type: string
-        default: ""
-        description: "ARM64 download URL with {VERSION} as placeholder (dual-arch casks)"
-      asset_url_template_intel:
-        required: false
-        type: string
-        default: ""
-        description: "x86_64 download URL with {VERSION} as placeholder (dual-arch casks)"
+        description: "Download URL with {VERSION} as placeholder"
 
 jobs:
   update:
@@ -60,10 +49,8 @@ jobs:
             echo "needs_update=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # --- Single-binary path (alacritty, oculante) ---
-
       - name: Download asset and compute SHA256
-        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm == ''
+        if: steps.check.outputs.needs_update == 'true'
         id: sha_single
         env:
           VERSION: ${{ steps.check.outputs.latest }}
@@ -77,7 +64,7 @@ jobs:
           echo "SHA256: $SHA256"
 
       - name: Update cask file
-        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm == ''
+        if: steps.check.outputs.needs_update == 'true'
         env:
           CASK_NAME: ${{ inputs.cask_name }}
           NEW_VERSION: ${{ steps.check.outputs.latest }}
@@ -97,62 +84,6 @@ jobs:
           echo "Updated cask:"
           cat "$CASK_FILE"
 
-      # --- Dual-arch path (darktable) ---
-
-      - name: Download arch-specific assets and compute SHA256
-        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm != ''
-        id: sha_dual
-        env:
-          VERSION: ${{ steps.check.outputs.latest }}
-          ARM_URL_TEMPLATE: ${{ inputs.asset_url_template_arm }}
-          INTEL_URL_TEMPLATE: ${{ inputs.asset_url_template_intel }}
-        run: |
-          ARM_URL="${ARM_URL_TEMPLATE//\{VERSION\}/$VERSION}"
-          echo "Downloading $ARM_URL"
-          curl -sfL -o asset-arm "$ARM_URL"
-          SHA256_ARM=$(sha256sum asset-arm | awk '{print $1}')
-          echo "sha256_arm=$SHA256_ARM" >> "$GITHUB_OUTPUT"
-          echo "ARM64 SHA256: $SHA256_ARM"
-
-          INTEL_URL="${INTEL_URL_TEMPLATE//\{VERSION\}/$VERSION}"
-          echo "Downloading $INTEL_URL"
-          curl -sfL -o asset-intel "$INTEL_URL"
-          SHA256_INTEL=$(sha256sum asset-intel | awk '{print $1}')
-          echo "sha256_intel=$SHA256_INTEL" >> "$GITHUB_OUTPUT"
-          echo "x86_64 SHA256: $SHA256_INTEL"
-
-      - name: Update cask file (dual-arch)
-        if: steps.check.outputs.needs_update == 'true' && inputs.asset_url_template_arm != ''
-        env:
-          CASK_NAME: ${{ inputs.cask_name }}
-          NEW_VERSION: ${{ steps.check.outputs.latest }}
-          NEW_SHA256_ARM: ${{ steps.sha_dual.outputs.sha256_arm }}
-          NEW_SHA256_INTEL: ${{ steps.sha_dual.outputs.sha256_intel }}
-        run: |
-          CASK_FILE="Casks/${CASK_NAME}.rb"
-          ARCH_LINE_BEFORE=$(grep '^[[:space:]]*arch ' "$CASK_FILE" || true)
-
-          # Each substitution is anchored to the start of its own stanza line.
-          # `intel:` appears on both the `arch` line and the `sha256` continuation
-          # line, so an unanchored /intel:/ address rewrites the arch stanza too.
-          sed -i "s/^\([[:space:]]*\)version \"[^\"]*\"/\1version \"${NEW_VERSION}\"/" "$CASK_FILE"
-          sed -i "s/^\([[:space:]]*sha256 arm:[[:space:]]*\)\"[^\"]*\"/\1\"${NEW_SHA256_ARM}\"/" "$CASK_FILE"
-          sed -i "s/^\([[:space:]]*intel:[[:space:]]*\)\"[^\"]*\"/\1\"${NEW_SHA256_INTEL}\"/" "$CASK_FILE"
-
-          grep -q "version \"${NEW_VERSION}\"" "$CASK_FILE" || { echo "::error::version was not updated"; exit 1; }
-          grep -q "arm:   \"${NEW_SHA256_ARM}\"" "$CASK_FILE" || { echo "::error::arm sha256 was not updated"; exit 1; }
-          grep -q "intel: \"${NEW_SHA256_INTEL}\"" "$CASK_FILE" || { echo "::error::intel sha256 was not updated"; exit 1; }
-          ARCH_LINE_AFTER=$(grep '^[[:space:]]*arch ' "$CASK_FILE" || true)
-          [ "$ARCH_LINE_BEFORE" = "$ARCH_LINE_AFTER" ] || {
-            echo "::error::arch stanza was modified by the version bump"
-            exit 1
-          }
-
-          echo "Updated cask:"
-          cat "$CASK_FILE"
-
-      # --- Unified commit ---
-
       - name: Commit and push
         if: steps.check.outputs.needs_update == 'true'
         env:
@@ -164,4 +95,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "Casks/${CASK_NAME}.rb"
           git commit -m "${CASK_NAME} - update ${CURRENT} -> ${LATEST}"
+          # Several cask workflows share the same schedule, so main may have moved.
+          git pull --rebase origin main
           git push

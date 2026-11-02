@@ -14,4 +14,4 @@ jobs:
     with:
       cask_name: oculante
       github_repo: woelper/oculante
-      asset_url_template: https://github.com/woelper/oculante/releases/download/{VERSION}/oculante_mac_universal.zip
+      asset_url_template: https://github.com/woelper/oculante/releases/download/{VERSION}/oculante_mac.zip

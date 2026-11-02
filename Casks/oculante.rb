@@ -1,8 +1,8 @@
 cask "oculante" do
-  version "0.9.2"
-  sha256 "c17742e6ebb28eb27f4696e43f5cb1446ac5636be83f051a2ddd60817500f698"
+  version "0.9.6"
+  sha256 "8ddf2bf85bd804d6648ea82ded24d7f40e1040e00d78e0863f4ef9c1a9de810a"
 
-  url "https://github.com/woelper/oculante/releases/download/#{version}/oculante_mac_universal.zip"
+  url "https://github.com/woelper/oculante/releases/download/#{version}/oculante_mac.zip"
   name "oculante"
   desc "Fast and simple image viewer"
   homepage "https://github.com/woelper/oculante"
@@ -13,19 +13,9 @@ cask "oculante" do
   end
 
   depends_on :macos
+  depends_on arch: :arm64
 
   app "oculante.app"
-
-  postflight_steps do
-    run "/usr/bin/xattr",
-        args:           ["-drs", "com.apple.quarantine", "{{appdir}}/oculante.app"],
-        writable_paths: "oculante.app",
-        writable_base:  :appdir
-    run "/usr/bin/codesign",
-        args:           ["--force", "--deep", "-s", "-", "{{appdir}}/oculante.app"],
-        writable_paths: "oculante.app",
-        writable_base:  :appdir
-  end
 
   zap trash: [
     "~/Library/Preferences/com.github.woelper.oculante.plist",
