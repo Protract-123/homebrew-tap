@@ -1,6 +1,6 @@
 cask "vencord-installer-cli" do
-  version "1.4.2"
-  sha256 "f4c77a9dddd4a12deaae270b3dadfda25969dfcfa141cc2354cafe6344044b75"
+  version "1.5.1"
+  sha256 "323f42a5b8da4b14580149d8f2e61bcef5d13583abf8451b57fb2dbf4d97afe0"
 
   url "https://github.com/Vencord/Installer/releases/download/v#{version}/VencordInstallerCli-darwin"
   name "VencordInstallerCli"
