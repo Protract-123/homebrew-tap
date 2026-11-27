@@ -1,6 +1,6 @@
 cask "vencord-installer" do
-  version "1.5.1"
-  sha256 "7aac831a66da74cba40e209278d32d77058e447e87ebb00813d0cd6d3c91a71e"
+  version "1.5.2"
+  sha256 "ab6766ebb1b3610b5cbeed8374a232624b5dee8231a9b131ca107517879bfdbb"
 
   url "https://github.com/Vencord/Installer/releases/download/v#{version}/VencordInstaller.dmg"
   name "VencordInstaller"
